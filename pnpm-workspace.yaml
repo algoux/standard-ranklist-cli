@@ -4,8 +4,8 @@ packages:
 allowBuilds:
   esbuild: true
 
-overrides:
-  '@algoux/standard-ranklist-utils': link:../standard-ranklist-utils/js
+minimumReleaseAgeExclude:
+  - '@algoux/standard-ranklist-utils@0.3.2'
 
 onlyBuiltDependencies:
   - esbuild

@@ -54,8 +54,8 @@ const changesetConfig = await readJson('.changeset/config.json');
 if (changesetConfig.access !== 'public') {
   fail('changesets access must be public');
 }
-if (changesetConfig.baseBranch !== 'main') {
-  fail('changesets baseBranch must be main');
+if (changesetConfig.baseBranch !== 'master') {
+  fail('changesets baseBranch must be master');
 }
 
 for (const workflow of ['.github/workflows/ci.yml', '.github/workflows/release.yml']) {

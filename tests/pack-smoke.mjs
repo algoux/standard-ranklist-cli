@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -31,18 +31,6 @@ try {
       2,
     ),
   );
-  writeFileSync(
-    join(consumerDir, 'pnpm-workspace.yaml'),
-    [
-      'packages:',
-      '  - .',
-      '',
-      'overrides:',
-      `  '@algoux/standard-ranklist-utils': 'link:${normalizeForPnpm(resolve(repoRoot, '..', 'standard-ranklist-utils', 'js'))}'`,
-      '',
-    ].join('\n'),
-  );
-
   execFileSync('pnpm', ['install', '--ignore-scripts'], { cwd: consumerDir, stdio: 'pipe' });
 
   const installedRoot = join(consumerDir, 'node_modules', '@algoux', 'standard-ranklist-cli');
