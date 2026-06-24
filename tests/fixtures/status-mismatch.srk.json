@@ -1,0 +1,59 @@
+{
+  "type": "general",
+  "version": "0.3.9",
+  "contest": {
+    "title": "Contest",
+    "startAt": "2026-01-01T00:00:00+08:00",
+    "duration": [5, "h"]
+  },
+  "problems": [
+    {
+      "alias": "A"
+    }
+  ],
+  "series": [
+    {
+      "title": "Rank",
+      "rule": {
+        "preset": "Normal"
+      }
+    }
+  ],
+  "sorter": {
+    "algorithm": "ICPC",
+    "config": {}
+  },
+  "rows": [
+    {
+      "user": {
+        "id": "u1",
+        "name": "u1"
+      },
+      "score": {
+        "value": 1,
+        "time": [70, "min"]
+      },
+      "statuses": [
+        {
+          "result": "AC",
+          "time": [30, "min"],
+          "tries": 3,
+          "solutions": [
+            {
+              "result": "WA",
+              "time": [10, "min"]
+            },
+            {
+              "result": "CE",
+              "time": [20, "min"]
+            },
+            {
+              "result": "AC",
+              "time": [30, "min"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

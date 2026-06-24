@@ -1,0 +1,11 @@
+packages:
+  - .
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  '@algoux/standard-ranklist-utils': link:../standard-ranklist-utils/js
+
+onlyBuiltDependencies:
+  - esbuild

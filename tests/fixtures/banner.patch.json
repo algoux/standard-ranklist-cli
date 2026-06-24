@@ -1,0 +1,14 @@
+{
+  "type": "srk-patch",
+  "version": 1,
+  "operations": [
+    {
+      "op": "set",
+      "target": {
+        "type": "contest",
+        "path": ["banner"]
+      },
+      "value": "https://example.com/banner.png"
+    }
+  ]
+}
