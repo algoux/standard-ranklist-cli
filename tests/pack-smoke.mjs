@@ -10,7 +10,7 @@ const tempDir = mkdtempSync(join(tmpdir(), 'srk-cli-pack-'));
 const consumerDir = join(tempDir, 'consumer');
 
 try {
-  execFileSync('pnpm', ['pack', '--pack-destination', tempDir], { cwd: repoRoot, stdio: 'pipe' });
+  runPnpm(['pack', '--pack-destination', tempDir], { cwd: repoRoot, stdio: 'pipe' });
   const tarballName = readdirSync(tempDir).find((entry) => entry.endsWith('.tgz'));
   assert.ok(tarballName, 'pnpm pack did not create a .tgz file');
   const tarballPath = join(tempDir, tarballName);
@@ -31,7 +31,7 @@ try {
       2,
     ),
   );
-  execFileSync('pnpm', ['install', '--ignore-scripts'], { cwd: consumerDir, stdio: 'pipe' });
+  runPnpm(['install', '--ignore-scripts'], { cwd: consumerDir, stdio: 'pipe' });
 
   const installedRoot = join(consumerDir, 'node_modules', '@algoux', 'standard-ranklist-cli');
   const packedPackageJson = JSON.parse(readFileSync(join(installedRoot, 'package.json'), 'utf8'));
@@ -41,7 +41,7 @@ try {
   const binText = readFileSync(binPath, 'utf8');
   assert.ok(binText.startsWith('#!/usr/bin/env node'), 'dist/index.js is missing a node shebang');
 
-  const output = execFileSync('pnpm', ['exec', 'srk', '--version'], {
+  const output = runPnpm(['exec', 'srk', '--version'], {
     cwd: consumerDir,
     encoding: 'utf8',
   });
@@ -52,4 +52,14 @@ try {
 
 function normalizeForPnpm(path) {
   return path.split(sep).join('/');
+}
+
+function runPnpm(args, options) {
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath && /\.[cm]?js$/iu.test(npmExecPath)) {
+    return execFileSync(process.execPath, [npmExecPath, ...args], options);
+  }
+
+  const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+  return execFileSync(command, args, options);
 }
