@@ -70,3 +70,25 @@ jobs:
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve GitHub release title
+        id: release_title
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const packages = JSON.parse(process.env.PUBLISHED_PACKAGES || '[]');
+          const packageInfo = packages.find((item) => item.name === '@algoux/standard-ranklist-cli') || packages[0];
+          if (!packageInfo?.name || !packageInfo?.version) {
+            throw new Error(`Unable to resolve published package from: ${process.env.PUBLISHED_PACKAGES || '[]'}`);
+          }
+          console.log(`tag=${packageInfo.name}@${packageInfo.version}`);
+          console.log(`title=v${packageInfo.version}`);
+          NODE
+
+      - name: Normalize GitHub release title
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit '${{ steps.release_title.outputs.tag }}' --title '${{ steps.release_title.outputs.title }}'

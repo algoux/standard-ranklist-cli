@@ -69,6 +69,9 @@ const releaseWorkflow = await readText('.github/workflows/release.yml');
 if (!/id-token:\s*write/u.test(releaseWorkflow)) {
   fail('release workflow must grant id-token: write for npm Trusted Publishing');
 }
+if (!/Normalize GitHub release title/u.test(releaseWorkflow) || !/gh release edit/u.test(releaseWorkflow)) {
+  fail('release workflow must normalize GitHub release titles to v{version}');
+}
 
 const changesetFiles = (await readdir(new URL('.changeset', root))).filter(
   (file) => file.endsWith('.md') && file !== 'README.md',
