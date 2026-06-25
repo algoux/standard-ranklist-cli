@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
 import { createDiagnoseCommand } from './commands/diagnose.js';
@@ -42,7 +42,19 @@ export async function main(argv = process.argv): Promise<void> {
   }
 }
 
-const entrypointUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : undefined;
+function resolveEntrypointUrl(entrypointPath: string | undefined): string | undefined {
+  if (!entrypointPath) {
+    return undefined;
+  }
+
+  try {
+    return pathToFileURL(realpathSync(entrypointPath)).href;
+  } catch {
+    return pathToFileURL(entrypointPath).href;
+  }
+}
+
+const entrypointUrl = resolveEntrypointUrl(process.argv[1]);
 if (entrypointUrl === import.meta.url) {
   void main();
 }

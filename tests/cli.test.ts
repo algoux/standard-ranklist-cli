@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { createServer, get, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -31,6 +31,33 @@ interface CliResult {
 function runCli(args: string[]): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ['--import', 'tsx', join(repoRoot, 'src', 'index.ts'), ...args], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FORCE_COLOR: '0',
+        NO_COLOR: '1',
+        TERM: 'dumb',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
+function runCliEntrypoint(entrypoint: string, args: string[]): Promise<CliResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['--import', 'tsx', entrypoint, ...args], {
       cwd: repoRoot,
       env: {
         ...process.env,
@@ -499,6 +526,19 @@ describe('srk command', () => {
 
     assert.equal(result.code, 0);
     assert.equal(result.stdout.trim(), packageJson.version);
+  });
+
+  test('starts when executed through a bin symlink', async () => {
+    await withTempDir(async (dir) => {
+      const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8')) as { version: string };
+      const binPath = join(dir, 'srk');
+      await symlink(join(repoRoot, 'src', 'index.ts'), binPath);
+
+      const result = await runCliEntrypoint(binPath, ['--version']);
+
+      assert.equal(result.code, 0);
+      assert.equal(result.stdout.trim(), packageJson.version);
+    });
   });
 
   test('prints subcommand help', async () => {
