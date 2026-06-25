@@ -36,6 +36,20 @@ try {
   const installedRoot = join(consumerDir, 'node_modules', '@algoux', 'standard-ranklist-cli');
   const packedPackageJson = JSON.parse(readFileSync(join(installedRoot, 'package.json'), 'utf8'));
   assert.equal(packedPackageJson.bin.srk, './dist/index.js');
+  const previewTemplate = readFileSync(join(installedRoot, 'dist', 'templates', 'preview.html'), 'utf8');
+  assert.ok(previewTemplate.includes('SRK_PREVIEW_INIT'));
+  assert.ok(
+    previewTemplate.indexOf('<div id="app"') < previewTemplate.lastIndexOf('<script>'),
+    'compiled preview script must run after the #app container exists',
+  );
+  assert.doesNotMatch(previewTemplate, /\.\$\.root/);
+  assert.doesNotMatch(previewTemplate, /\.\$\.callbacks/);
+  assert.match(previewTemplate, /root:\w+\.target\|\|\(\w+\?\w+\.\$\$\.root:document\)/);
+  assert.doesNotMatch(
+    previewTemplate,
+    /\.satisfies\(/,
+    'compiled preview template must not rely on bundled semver.satisfies for SRK version checks',
+  );
 
   const binPath = join(installedRoot, packedPackageJson.bin.srk);
   const binText = readFileSync(binPath, 'utf8');
@@ -46,6 +60,34 @@ try {
     encoding: 'utf8',
   });
   assert.equal(output.trim(), packedPackageJson.version);
+
+  writeFileSync(join(consumerDir, 'sample.srk.json'), readFileSync(join(repoRoot, 'tests', 'fixtures', 'conflict.srk.json')));
+  const html = runPnpm(['exec', 'srk', 'render', 'sample.srk.json'], {
+    cwd: consumerDir,
+    encoding: 'utf8',
+  });
+  assert.match(html, /^<!doctype html>/i);
+  assert.match(html, /window\.__SRK_PREVIEW_INIT__ = /);
+  assert.match(html, /"id":"sample"/);
+  assert.doesNotMatch(html, /src="\/assets\//);
+  assert.doesNotMatch(html, /href="\/assets\//);
+
+  mkdirSync(join(consumerDir, 'ranklists', 'nested'), { recursive: true });
+  writeFileSync(
+    join(consumerDir, 'ranklists', 'nested', 'sample.srk.json'),
+    readFileSync(join(repoRoot, 'tests', 'fixtures', 'conflict.srk.json')),
+  );
+  runPnpm(['exec', 'srk', 'render', '-o', 'rendered-site', 'ranklists'], {
+    cwd: consumerDir,
+    encoding: 'utf8',
+  });
+  const directoryHtml = readFileSync(join(consumerDir, 'rendered-site', 'index.html'), 'utf8');
+  assert.match(directoryHtml, /"mode":"directory"/);
+  assert.match(directoryHtml, /"dataSource":"static"/);
+  assert.equal(
+    readFileSync(join(consumerDir, 'rendered-site', 'data', 'nested', 'sample.srk.json'), 'utf8'),
+    readFileSync(join(consumerDir, 'ranklists', 'nested', 'sample.srk.json'), 'utf8'),
+  );
 } finally {
   rmSync(tempDir, { recursive: true, force: true });
 }

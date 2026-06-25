@@ -17,7 +17,7 @@ export function createDiagnoseCommand(): Command {
 
   command
     .description('diagnose an explicit Standard Ranklist JSON file')
-    .argument('<ranklist.json>', 'ranklist JSON file to inspect')
+    .argument('<srk.json>', 'ranklist JSON file to inspect')
     .option('-f, --format <format>', 'output format: text or json', 'text')
     .option('-p, --patch <patch.json>', 'write a generated srk patch file')
     .action(async (ranklistPath: string, options: DiagnoseOptions) => {

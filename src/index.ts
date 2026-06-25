@@ -4,6 +4,8 @@ import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
 import { createDiagnoseCommand } from './commands/diagnose.js';
 import { createPatchCommand } from './commands/patch.js';
+import { createPreviewCommand } from './commands/preview.js';
+import { createRenderCommand } from './commands/render.js';
 import { printCliError } from './utils/errors.js';
 
 function readPackageVersion(): string {
@@ -24,6 +26,8 @@ export function createProgram(): Command {
 
   program.addCommand(createDiagnoseCommand());
   program.addCommand(createPatchCommand());
+  program.addCommand(createPreviewCommand());
+  program.addCommand(createRenderCommand());
 
   return program;
 }

@@ -12,7 +12,7 @@ export function createPatchCommand(): Command {
 
   command
     .description('apply an srk patch file to an explicit Standard Ranklist JSON file')
-    .argument('<ranklist.json>', 'ranklist JSON file to patch')
+    .argument('<srk.json>', 'ranklist JSON file to patch')
     .argument('<patch.json>', 'srk patch JSON file to apply')
     .option('-o, --output <fixed.json>', 'write patched ranklist JSON to a file')
     .option('--in-place', 'overwrite the input ranklist JSON file')
