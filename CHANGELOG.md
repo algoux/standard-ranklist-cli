@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.3.2
+
+### Patch Changes
+
+- e3c15e1: Stream git blobs when rendering diff previews so large changed `.srk.json` files no longer hit child-process stdout buffer limits.
+
 ## 0.3.1
 
 ### Patch Changes
