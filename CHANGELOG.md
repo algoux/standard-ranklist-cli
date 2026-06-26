@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.3.1
+
+### Patch Changes
+
+- 104e79a: Optimize preview/render page sidebar style
+
 ## 0.3.0
 
 ### Minor Changes
