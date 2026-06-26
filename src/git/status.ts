@@ -1,10 +1,13 @@
-import { execFile } from 'node:child_process';
-import { access, realpath } from 'node:fs/promises';
+import { execFile, spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
+import { access, realpath, rm } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 import { CliError, getErrorMessage } from '../utils/errors.js';
 
 const execFileAsync = promisify(execFile);
+const maxGitBlobStderrLength = 8 * 1024;
 
 export type PreviewGitStatusCode = 'U' | 'A' | 'M' | 'R' | 'D';
 export type PreviewGitStatusTone = 'green' | 'blue' | 'red';
@@ -88,16 +91,55 @@ export async function resolvePreviewGitCommit(previewRoot: string, ref: string):
   };
 }
 
-export async function readPreviewGitFileAtCommit(
+export async function writePreviewGitFileAtCommit(
   target: PreviewGitCommitTarget,
   previewRelativePath: string,
-): Promise<string> {
+  outputPath: string,
+): Promise<void> {
   const repoRelativePath = toRepoRelativePath(target.repoRoot, target.previewRoot, previewRelativePath);
-  try {
-    return await runGitRaw(target.repoRoot, ['show', `${target.commit}:${repoRelativePath}`]);
-  } catch (error) {
+  let stderr = '';
+  let stderrTruncated = false;
+
+  const child = spawn('git', ['-C', target.repoRoot, 'show', `${target.commit}:${repoRelativePath}`], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  if (!child.stdout || !child.stderr) {
+    child.kill();
+    throw new CliError(`Unable to read "${previewRelativePath}" from git commit ${target.commit}: git stdout unavailable`);
+  }
+
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk: string) => {
+    if (stderr.length >= maxGitBlobStderrLength) {
+      stderrTruncated = true;
+      return;
+    }
+    const remaining = maxGitBlobStderrLength - stderr.length;
+    stderr += chunk.slice(0, remaining);
+    stderrTruncated ||= chunk.length > remaining;
+  });
+
+  const streamResult = pipeline(child.stdout, createWriteStream(outputPath));
+  const exitResult = new Promise<void>((resolveExit, rejectExit) => {
+    child.once('error', rejectExit);
+    child.once('close', (code, signal) => {
+      if (code === 0) {
+        resolveExit();
+        return;
+      }
+
+      const stderrMessage = formatCollectedGitStderr(stderr, stderrTruncated);
+      rejectExit(new Error(stderrMessage || formatGitExitStatus(code, signal)));
+    });
+  });
+
+  const results = await Promise.allSettled([streamResult, exitResult]);
+  const failure = results.find((result) => result.status === 'rejected');
+  if (failure?.status === 'rejected') {
+    await rm(outputPath, { force: true }).catch(() => undefined);
     throw new CliError(
-      `Unable to read "${previewRelativePath}" from git commit ${target.commit}: ${getErrorMessage(error)}`,
+      `Unable to read "${previewRelativePath}" from git commit ${target.commit}: ${getErrorMessage(failure.reason)}`,
     );
   }
 }
@@ -348,6 +390,21 @@ async function runGitRaw(cwd: string, args: string[]): Promise<string> {
     maxBuffer: 32 * 1024 * 1024,
   });
   return String(stdout);
+}
+
+function formatCollectedGitStderr(stderr: string, truncated: boolean): string {
+  const message = stderr.trim();
+  if (!message) {
+    return '';
+  }
+  return truncated ? `${message}\n[stderr truncated]` : message;
+}
+
+function formatGitExitStatus(code: number | null, signal: NodeJS.Signals | null): string {
+  if (signal) {
+    return `git show exited with signal ${signal}`;
+  }
+  return `git show exited with code ${code ?? 'unknown'}`;
 }
 
 function toGitPathspec(path: string): string {

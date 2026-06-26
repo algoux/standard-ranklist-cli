@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { createServer, get, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -15,7 +15,12 @@ import { formatPreviewGitSummaryLabel } from '../src/rendering/git-context.js';
 import { formatContestTime } from '../src/rendering/time.js';
 import { resolveOptionalText } from '../src/rendering/text.js';
 import { getPreviewTemplateUrl } from '../src/rendering/template.js';
-import { parseGitDiffNameStatusZ, parseGitStatusPorcelainZ } from '../src/git/status.js';
+import {
+  parseGitDiffNameStatusZ,
+  parseGitStatusPorcelainZ,
+  resolvePreviewGitCommit,
+  writePreviewGitFileAtCommit,
+} from '../src/git/status.js';
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const fixtureDir = join(repoRoot, 'tests', 'fixtures');
@@ -285,6 +290,29 @@ async function createGitPreviewFixture(dir: string): Promise<void> {
   await git(dir, ['commit', '-m', 'change ranklists']);
 }
 
+async function createLargeGitPreviewFixture(dir: string): Promise<{ base: string; head: string; relativePath: string }> {
+  const previewRoot = join(dir, 'official');
+  await mkdir(previewRoot, { recursive: true });
+
+  await git(dir, ['init']);
+  await git(dir, ['config', 'user.email', 'srk-test@example.test']);
+  await git(dir, ['config', 'user.name', 'SRK Test']);
+  await writeFile(join(previewRoot, '.gitkeep'), '', 'utf8');
+  await git(dir, ['add', '.']);
+  await git(dir, ['commit', '-m', 'initial']);
+  const base = await git(dir, ['rev-parse', 'HEAD']);
+
+  const ranklist = JSON.parse(await readFile(join(fixtureDir, 'conflict.srk.json'), 'utf8')) as Record<string, unknown>;
+  ranklist.largePayload = 'x'.repeat(33 * 1024 * 1024);
+  const relativePath = 'large.srk.json';
+  await writeFile(join(previewRoot, relativePath), JSON.stringify(ranklist), 'utf8');
+  await git(dir, ['add', '.']);
+  await git(dir, ['commit', '-m', 'add large ranklist']);
+  const head = await git(dir, ['rev-parse', 'HEAD']);
+
+  return { base, head, relativePath };
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (response.status !== 200) {
@@ -464,6 +492,37 @@ describe('srk command', () => {
     assert.equal(statuses.has('old.srk.json'), false);
     assert.equal(statuses.get('copied.srk.json')?.code, 'A');
     assert.equal(statuses.has('source.srk.json'), false);
+  });
+
+  test('reports git commit file read failures with path and commit context', async (t) => {
+    if (!(await hasGit())) {
+      t.skip('git is not available');
+      return;
+    }
+
+    await withTempDir(async (dir) => {
+      const previewRoot = join(dir, 'official');
+      await mkdir(previewRoot, { recursive: true });
+      await git(dir, ['init']);
+      await git(dir, ['config', 'user.email', 'srk-test@example.test']);
+      await git(dir, ['config', 'user.name', 'SRK Test']);
+      await writeFile(join(previewRoot, '.gitkeep'), '', 'utf8');
+      await git(dir, ['add', '.']);
+      await git(dir, ['commit', '-m', 'initial']);
+
+      const target = await resolvePreviewGitCommit(previewRoot, 'HEAD');
+      await assert.rejects(
+        writePreviewGitFileAtCommit(target, 'missing.srk.json', join(dir, 'missing.srk.json')),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.match(
+            error.message,
+            new RegExp(`Unable to read "missing\\.srk\\.json" from git commit ${target.commit}:`),
+          );
+          return true;
+        },
+      );
+    });
   });
 
   test('annotates preview trees with file and aggregated directory git status', async () => {
@@ -952,6 +1011,74 @@ describe('srk command', () => {
       await readFile(join(outputDir, 'data', commit, 'added.srk.json'), 'utf8');
       await readFile(join(outputDir, 'data', commit, 'nested', 'renamed-new.srk.json'), 'utf8');
       await assert.rejects(readFile(join(outputDir, 'data', commit, 'removed.srk.json'), 'utf8'));
+    });
+  });
+
+  test('render git diff mode writes large SRK files from the resolved head commit', async (t) => {
+    if (!(await hasGit())) {
+      t.skip('git is not available');
+      return;
+    }
+
+    await withTempDir(async (dir) => {
+      const { base, head, relativePath } = await createLargeGitPreviewFixture(dir);
+      const outputDir = join(dir, 'site');
+
+      const result = await runCli([
+        'render',
+        '--git-diff-base',
+        base,
+        '--git-diff-head',
+        head,
+        '-o',
+        outputDir,
+        join(dir, 'official'),
+      ]);
+
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout, '');
+      await readFile(join(outputDir, 'index.html'), 'utf8');
+      const dataFile = join(outputDir, 'data', head, relativePath);
+      assert.ok((await stat(dataFile)).size > 32 * 1024 * 1024);
+    });
+  });
+
+  test('render git diff mode reports invalid JSON from the resolved head commit', async (t) => {
+    if (!(await hasGit())) {
+      t.skip('git is not available');
+      return;
+    }
+
+    await withTempDir(async (dir) => {
+      const previewRoot = join(dir, 'official');
+      await mkdir(previewRoot, { recursive: true });
+      await git(dir, ['init']);
+      await git(dir, ['config', 'user.email', 'srk-test@example.test']);
+      await git(dir, ['config', 'user.name', 'SRK Test']);
+      await writeFile(join(previewRoot, '.gitkeep'), '', 'utf8');
+      await git(dir, ['add', '.']);
+      await git(dir, ['commit', '-m', 'initial']);
+      const base = await git(dir, ['rev-parse', 'HEAD']);
+
+      await writeFile(join(previewRoot, 'invalid.srk.json'), '{ invalid json', 'utf8');
+      await git(dir, ['add', '.']);
+      await git(dir, ['commit', '-m', 'add invalid ranklist']);
+      const head = await git(dir, ['rev-parse', 'HEAD']);
+
+      const result = await runCli([
+        'render',
+        '--git-diff-base',
+        base,
+        '--git-diff-head',
+        head,
+        '-o',
+        join(dir, 'site'),
+        previewRoot,
+      ]);
+
+      assert.notEqual(result.code, 0);
+      assert.match(result.stderr, /Invalid JSON in git ranklist "invalid\.srk\.json"/);
+      assert.doesNotMatch(result.stderr, /Unable to read "invalid\.srk\.json"/);
     });
   });
 

@@ -1,12 +1,12 @@
-import { copyFile, mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Command } from 'commander';
 import {
   collectPreviewGitState,
-  readPreviewGitFileAtCommit,
   resolvePreviewGitCommit,
   type PreviewGitCommitTarget,
   type PreviewGitDiffRefs,
+  writePreviewGitFileAtCommit,
 } from '../git/status.js';
 import { formatPreviewRootLabel } from '../preview/root-label.js';
 import {
@@ -192,11 +192,10 @@ async function writeGitDiffDataFiles(
   target: PreviewGitCommitTarget,
 ): Promise<void> {
   for (const relativePath of collectRenderableTreePaths(entries)) {
-    const content = await readPreviewGitFileAtCommit(target, relativePath);
-    validateJsonContent(content, relativePath);
     const targetPath = resolveDataOutputPath(dataRootPath, relativePath);
     await mkdir(dirname(targetPath), { recursive: true });
-    await writeFile(targetPath, content, 'utf8');
+    await writePreviewGitFileAtCommit(target, relativePath, targetPath);
+    validateJsonContent(await readFile(targetPath, 'utf8'), relativePath);
   }
 }
 
