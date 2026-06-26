@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.3.0
+
+### Minor Changes
+
+- 0734bb2: Add `srk validate` for schema-level SRK validation.
+
 ## 0.2.0
 
 ### Minor Changes
