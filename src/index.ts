@@ -6,6 +6,7 @@ import { createDiagnoseCommand } from './commands/diagnose.js';
 import { createPatchCommand } from './commands/patch.js';
 import { createPreviewCommand } from './commands/preview.js';
 import { createRenderCommand } from './commands/render.js';
+import { createValidateCommand } from './commands/validate.js';
 import { printCliError } from './utils/errors.js';
 
 function readPackageVersion(): string {
@@ -24,6 +25,7 @@ export function createProgram(): Command {
     .showHelpAfterError()
     .showSuggestionAfterError();
 
+  program.addCommand(createValidateCommand());
   program.addCommand(createDiagnoseCommand());
   program.addCommand(createPatchCommand());
   program.addCommand(createPreviewCommand());

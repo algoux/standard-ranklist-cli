@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +62,12 @@ try {
   assert.equal(output.trim(), packedPackageJson.version);
 
   writeFileSync(join(consumerDir, 'sample.srk.json'), readFileSync(join(repoRoot, 'tests', 'fixtures', 'conflict.srk.json')));
+  const validateOutput = runPnpm(['exec', 'srk', 'validate', 'sample.srk.json'], {
+    cwd: consumerDir,
+    encoding: 'utf8',
+  });
+  assert.equal(validateOutput, `SRK validation OK: ${realpathSync(join(consumerDir, 'sample.srk.json'))}\n`);
+
   const html = runPnpm(['exec', 'srk', 'render', 'sample.srk.json'], {
     cwd: consumerDir,
     encoding: 'utf8',

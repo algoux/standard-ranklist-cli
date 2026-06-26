@@ -516,6 +516,7 @@ describe('srk command', () => {
 
     assert.equal(result.code, 0);
     assert.match(result.stdout, /Usage: srk/);
+    assert.match(result.stdout, /validate/);
     assert.match(result.stdout, /diagnose/);
     assert.match(result.stdout, /patch/);
   });
@@ -542,8 +543,13 @@ describe('srk command', () => {
   });
 
   test('prints subcommand help', async () => {
+    const validate = await runCli(['validate', '--help']);
     const diagnose = await runCli(['diagnose', '--help']);
     const patch = await runCli(['patch', '--help']);
+
+    assert.equal(validate.code, 0);
+    assert.match(validate.stdout, /Usage: srk validate/);
+    assert.match(validate.stdout, /srk\.json/);
 
     assert.equal(diagnose.code, 0);
     assert.match(diagnose.stdout, /Usage: srk diagnose/);
@@ -576,6 +582,86 @@ describe('srk command', () => {
     assert.match(render.stdout, /--git-diff-base/);
     assert.match(render.stdout, /--git-diff-head/);
     assert.match(render.stdout, /--pr-url/);
+  });
+
+  test('validates a schema-valid SRK file without running diagnostics', async () => {
+    const fixturePath = join(fixtureDir, 'conflict.srk.json');
+    const result = await runCli(['validate', fixturePath]);
+
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(result.stdout, `SRK validation OK: ${fixturePath}\n`);
+    assert.equal(result.stderr, '');
+  });
+
+  test('allows unknown extension fields while validating known field shapes', async () => {
+    await withTempDir(async (dir) => {
+      const ranklistPath = await copyFixture('conflict.srk.json', dir);
+      const ranklist = JSON.parse(await readFile(ranklistPath, 'utf8')) as {
+        extensionNote?: string;
+        contest: { extraContestField?: { enabled: boolean } };
+        rows: Array<{ user: { extensionUserField?: string } }>;
+      };
+      ranklist.extensionNote = 'kept by downstream tooling';
+      ranklist.contest.extraContestField = { enabled: true };
+      ranklist.rows[0].user.extensionUserField = 'local-only';
+      await writeFile(ranklistPath, JSON.stringify(ranklist), 'utf8');
+
+      const result = await runCli(['validate', ranklistPath]);
+
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout, `SRK validation OK: ${ranklistPath}\n`);
+      assert.equal(result.stderr, '');
+    });
+  });
+
+  test('rejects missing required SRK fields with a useful schema path', async () => {
+    await withTempDir(async (dir) => {
+      const ranklistPath = await copyFixture('conflict.srk.json', dir);
+      const ranklist = JSON.parse(await readFile(ranklistPath, 'utf8')) as Record<string, unknown>;
+      delete ranklist.contest;
+      await writeFile(ranklistPath, JSON.stringify(ranklist), 'utf8');
+
+      const result = await runCli(['validate', ranklistPath]);
+
+      assert.notEqual(result.code, 0);
+      assert.match(result.stderr, new RegExp(`SRK validation failed: ${escapeRegExp(ranklistPath)}`));
+      assert.match(result.stderr, /\/contest/);
+      assert.match(result.stderr, /required property/i);
+    });
+  });
+
+  test('rejects wrong field types and invalid schema formats with useful paths', async () => {
+    await withTempDir(async (dir) => {
+      const ranklistPath = await copyFixture('conflict.srk.json', dir);
+      const ranklist = JSON.parse(await readFile(ranklistPath, 'utf8')) as {
+        contest: { startAt: string };
+        rows: Array<{ score: { time: [number, string] } }>;
+      };
+      ranklist.contest.startAt = 'not-a-date';
+      ranklist.rows[0].score.time = [10, 'fortnight'];
+      await writeFile(ranklistPath, JSON.stringify(ranklist), 'utf8');
+
+      const result = await runCli(['validate', ranklistPath]);
+
+      assert.notEqual(result.code, 0);
+      assert.match(result.stderr, /\/contest\/startAt/);
+      assert.match(result.stderr, /date-time/);
+      assert.match(result.stderr, /\/rows\/0\/score\/time\/1/);
+      assert.match(result.stderr, /allowed value/i);
+    });
+  });
+
+  test('validate keeps the existing invalid JSON error style', async () => {
+    await withTempDir(async (dir) => {
+      const ranklistPath = join(dir, 'invalid.srk.json');
+      await writeFile(ranklistPath, '{ invalid json', 'utf8');
+
+      const result = await runCli(['validate', ranklistPath]);
+
+      assert.notEqual(result.code, 0);
+      assert.match(result.stderr, /srk: Invalid JSON in ranklist/);
+      assert.match(result.stderr, new RegExp(escapeRegExp(ranklistPath)));
+    });
   });
 
   test('prints JSON diagnostics for an explicit SRK file', async () => {

@@ -1,6 +1,6 @@
 # Standard Ranklist CLI
 
-`srk` is a command-line tool for Standard Ranklist JSON files. It can diagnose ranklists, apply patch files, start a browser preview, and render static HTML output.
+`srk` is a command-line tool for Standard Ranklist JSON files. It can validate ranklists, diagnose ranklists, apply patch files, start a browser preview, and render static HTML output.
 
 ## Installation
 
@@ -19,6 +19,25 @@ srk --version
 
 - `--help`: Show command help.
 - `-v, --version`: Print the current CLI version.
+
+## `srk validate`
+
+Quickly check whether an SRK JSON file has legal schema fields and field types.
+
+```shell
+srk validate ranklist.srk.json
+```
+
+Arguments:
+
+- `<srk.json>`: The SRK JSON file to validate.
+
+Notes:
+
+- The command validates JSON syntax, required fields, field types, enum values, tuple lengths, and schema formats.
+- Unknown fields inside SRK objects are allowed.
+- Validation failures print details and return a non-zero exit code.
+- This command does not run semantic diagnostics such as first-blood conflicts or row-order checks.
 
 ## `srk diagnose`
 
