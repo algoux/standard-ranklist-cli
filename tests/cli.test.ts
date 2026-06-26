@@ -1278,6 +1278,12 @@ describe('srk command', () => {
     assert.match(source, /\.file-tree-git-context[\s\S]*text-overflow: ellipsis/);
     assert.match(source, /\.file-tree-pr-context[\s\S]*flex: 0 0 auto/);
   });
+
+  test('preview theme classes declare control color schemes for local scrollbars', async () => {
+    const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
+    assert.match(source, /\.theme-light\s*\{[\s\S]*color-scheme: light;[\s\S]*\}/);
+    assert.match(source, /\.theme-dark\s*\{[\s\S]*color-scheme: dark;[\s\S]*\}/);
+  });
 });
 
 function escapeRegExp(text: string): string {

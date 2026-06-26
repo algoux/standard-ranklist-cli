@@ -375,7 +375,12 @@
     background: var(--page-bg);
   }
 
+  .theme-light {
+    color-scheme: light;
+  }
+
   .theme-dark {
+    color-scheme: dark;
     --page-bg: rgb(0, 0, 0);
     --panel-bg: rgb(0, 0, 0);
     --panel-border: rgba(127, 127, 127, 0.42);
