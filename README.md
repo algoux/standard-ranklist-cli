@@ -1,5 +1,8 @@
 # Standard Ranklist CLI
 
+[![npm version](https://img.shields.io/npm/v/@algoux/standard-ranklist-cli.svg)](https://www.npmjs.com/package/@algoux/standard-ranklist-cli)
+[![npm downloads](https://img.shields.io/npm/dm/@algoux/standard-ranklist-cli.svg)](https://www.npmjs.com/package/@algoux/standard-ranklist-cli)
+
 `srk` is a command-line tool for Standard Ranklist JSON files. It can validate ranklists, diagnose ranklists, apply patch files, start a browser preview, and render static HTML output.
 
 ## Installation
