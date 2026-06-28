@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.3.3
+
+### Patch Changes
+
+- a5cb32f: Add `srk render --static-data-root-url` for static directory previews that load JSON from an external URL root while preserving build-time SRK JSON validation.
+
 ## 0.3.2
 
 ### Patch Changes
