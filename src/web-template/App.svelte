@@ -118,7 +118,11 @@
   }
 
   function resolveStaticRanklistUrl(path) {
-    return `${encodeRelativeUrlPath(dataRoot)}/${encodeRelativeUrlPath(path)}`;
+    const encodedPath = encodeRelativeUrlPath(path);
+    if (/^https?:\/\//i.test(dataRoot)) {
+      return `${String(dataRoot).replace(/\/+$/g, '')}/${encodedPath}`;
+    }
+    return `${encodeRelativeUrlPath(dataRoot)}/${encodedPath}`;
   }
 
   function encodeRelativeUrlPath(path) {

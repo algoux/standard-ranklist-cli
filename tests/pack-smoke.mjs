@@ -61,6 +61,12 @@ try {
   });
   assert.equal(output.trim(), packedPackageJson.version);
 
+  const renderHelp = runPnpm(['exec', 'srk', 'render', '--help'], {
+    cwd: consumerDir,
+    encoding: 'utf8',
+  });
+  assert.match(renderHelp, /--static-data-root-url <url>/);
+
   writeFileSync(join(consumerDir, 'sample.srk.json'), readFileSync(join(repoRoot, 'tests', 'fixtures', 'conflict.srk.json')));
   const validateOutput = runPnpm(['exec', 'srk', 'validate', 'sample.srk.json'], {
     cwd: consumerDir,

@@ -1,4 +1,5 @@
-import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Command } from 'commander';
 import {
@@ -26,6 +27,7 @@ interface RenderOptions {
   gitDiffBase?: string;
   gitDiffHead?: string;
   prUrl?: string;
+  staticDataRootUrl?: string;
 }
 
 export function createRenderCommand(): Command {
@@ -39,6 +41,7 @@ export function createRenderCommand(): Command {
     .option('--git-diff-base <ref>', 'render only SRK files changed in the git diff from this base ref')
     .option('--git-diff-head <ref>', 'git diff head ref for --git-diff-base')
     .option('--pr-url <url>', 'mark directory diff output as a PR review build')
+    .option('--static-data-root-url <url>', 'load static directory render JSON from URL root instead of writing files')
     .action(async (path: string, options: RenderOptions) => {
       await runRender(path, options);
     });
@@ -119,17 +122,24 @@ async function renderDirectory(inputPath: string, options: RenderOptions): Promi
   const selectedPath = findFirstTreeRanklistPath(tree.entries);
   const prContext = options.prUrl ? parsePrContext(options.prUrl) : null;
   const pageTitle = prContext ? `SRK PR ${prContext.label} Review Build` : null;
-  let dataRoot = 'data';
+  const externalDataRootUrl = resolveStaticDataRootUrl(options);
+  let dataRoot = externalDataRootUrl ?? 'data';
 
   await mkdir(outputDir, { recursive: true });
   await rm(join(outputDir, 'data'), { recursive: true, force: true });
 
   if (gitDiffRefs) {
     const target = await resolvePreviewGitCommit(inputPath, gitDiffRefs.head);
-    dataRoot = `data/${target.commit}`;
-    await writeGitDiffDataFiles(join(outputDir, dataRoot), tree.entries, target);
-  } else {
+    if (!externalDataRootUrl) {
+      dataRoot = `data/${target.commit}`;
+      await writeGitDiffDataFiles(join(outputDir, dataRoot), tree.entries, target);
+    } else {
+      await validateGitDiffDataFiles(tree.entries, target);
+    }
+  } else if (!externalDataRootUrl) {
     await copyDirectoryDataFiles(inputPath, join(outputDir, dataRoot), tree.entries);
+  } else {
+    await validateDirectoryDataFiles(inputPath, tree.entries);
   }
 
   const html = await renderPreviewHtml({
@@ -161,6 +171,28 @@ function resolveGitDiffRefs(options: RenderOptions): PreviewGitDiffRefs | null {
   };
 }
 
+function resolveStaticDataRootUrl(options: RenderOptions): string | null {
+  if (!options.staticDataRootUrl) {
+    return null;
+  }
+  return normalizeStaticDataRootUrl(options.staticDataRootUrl);
+}
+
+function normalizeStaticDataRootUrl(value: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch (error) {
+    throw new CliError(`Invalid --static-data-root-url "${value}": ${getErrorMessage(error)}`);
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new CliError(`Invalid --static-data-root-url "${value}": only http and https URLs are supported.`);
+  }
+
+  return parsed.href.replace(/\/+$/u, '');
+}
+
 function toBuildPreviewTreeOptions(
   gitState: Awaited<ReturnType<typeof collectPreviewGitState>>,
 ): BuildPreviewTreeOptions {
@@ -186,6 +218,13 @@ async function copyDirectoryDataFiles(
   }
 }
 
+async function validateDirectoryDataFiles(inputPath: string, entries: PreviewTreeEntry[]): Promise<void> {
+  for (const relativePath of collectRenderableTreePaths(entries)) {
+    const sourcePath = resolvePreviewFilePath(inputPath, relativePath);
+    validateJsonContent(await readFile(sourcePath, 'utf8'), relativePath);
+  }
+}
+
 async function writeGitDiffDataFiles(
   dataRootPath: string,
   entries: PreviewTreeEntry[],
@@ -196,6 +235,15 @@ async function writeGitDiffDataFiles(
     await mkdir(dirname(targetPath), { recursive: true });
     await writePreviewGitFileAtCommit(target, relativePath, targetPath);
     validateJsonContent(await readFile(targetPath, 'utf8'), relativePath);
+  }
+}
+
+async function validateGitDiffDataFiles(entries: PreviewTreeEntry[], target: PreviewGitCommitTarget): Promise<void> {
+  const validationRoot = await mkdtemp(join(tmpdir(), 'srk-render-data-'));
+  try {
+    await writeGitDiffDataFiles(validationRoot, entries, target);
+  } finally {
+    await rm(validationRoot, { recursive: true, force: true });
   }
 }
 

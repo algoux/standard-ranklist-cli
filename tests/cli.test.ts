@@ -641,6 +641,7 @@ describe('srk command', () => {
     assert.match(render.stdout, /--git-diff-base/);
     assert.match(render.stdout, /--git-diff-head/);
     assert.match(render.stdout, /--pr-url/);
+    assert.match(render.stdout, /--static-data-root-url/);
   });
 
   test('validates a schema-valid SRK file without running diagnostics', async () => {
@@ -962,6 +963,55 @@ describe('srk command', () => {
     });
   });
 
+  test('render directory mode can use an external static data root without copying SRK JSON files', async () => {
+    await withTempDir(async (dir) => {
+      const inputDir = join(dir, 'ranklists');
+      const outputDir = join(dir, 'site');
+      await mkdir(join(inputDir, 'nested'), { recursive: true });
+      await copyFixture('conflict.srk.json', inputDir);
+      await writeFile(
+        join(inputDir, 'nested', 'visible.srk.json'),
+        await readFile(join(fixtureDir, 'conflict.srk.json'), 'utf8'),
+      );
+
+      const result = await runCli([
+        'render',
+        '-o',
+        outputDir,
+        '--static-data-root-url',
+        'https://example.test/ranklists',
+        inputDir,
+      ]);
+
+      assert.equal(result.code, 0, result.stderr);
+      const html = await readFile(join(outputDir, 'index.html'), 'utf8');
+      const init = extractPreviewInit(html);
+      assert.equal(init.dataSource, 'static');
+      assert.equal(init.dataRoot, 'https://example.test/ranklists');
+      assert.equal(init.selectedPath, 'conflict.srk.json');
+      await assert.rejects(readFile(join(outputDir, 'data', 'conflict.srk.json'), 'utf8'));
+      await assert.rejects(readFile(join(outputDir, 'data', 'nested', 'visible.srk.json'), 'utf8'));
+    });
+  });
+
+  test('render rejects invalid external static data root URLs', async () => {
+    await withTempDir(async (dir) => {
+      await copyFixture('conflict.srk.json', dir);
+
+      const result = await runCli([
+        'render',
+        '-o',
+        join(dir, 'site'),
+        '--static-data-root-url',
+        'notaurl',
+        dir,
+      ]);
+
+      assert.notEqual(result.code, 0);
+      assert.match(result.stderr, /Invalid --static-data-root-url "notaurl"/);
+    });
+  });
+
   test('render git diff mode writes changed SRK files from the resolved head commit under data commit root', async (t) => {
     if (!(await hasGit())) {
       t.skip('git is not available');
@@ -1011,6 +1061,40 @@ describe('srk command', () => {
       await readFile(join(outputDir, 'data', commit, 'added.srk.json'), 'utf8');
       await readFile(join(outputDir, 'data', commit, 'nested', 'renamed-new.srk.json'), 'utf8');
       await assert.rejects(readFile(join(outputDir, 'data', commit, 'removed.srk.json'), 'utf8'));
+    });
+  });
+
+  test('render git diff mode validates head JSON but skips data files with an external static data root', async (t) => {
+    if (!(await hasGit())) {
+      t.skip('git is not available');
+      return;
+    }
+
+    await withTempDir(async (dir) => {
+      await createGitPreviewFixture(dir);
+      const commit = await git(dir, ['rev-parse', 'HEAD']);
+      const outputDir = join(dir, 'site');
+
+      const result = await runCli([
+        'render',
+        '--git-diff-base',
+        'HEAD~1',
+        '--git-diff-head',
+        'HEAD',
+        '--static-data-root-url',
+        `https://raw.githubusercontent.com/algoux/example/${commit}/ranklists`,
+        '-o',
+        outputDir,
+        dir,
+      ]);
+
+      assert.equal(result.code, 0, result.stderr);
+      const html = await readFile(join(outputDir, 'index.html'), 'utf8');
+      const init = extractPreviewInit(html);
+      assert.equal(init.dataRoot, `https://raw.githubusercontent.com/algoux/example/${commit}/ranklists`);
+      assert.equal(init.selectedPath, 'added.srk.json');
+      await assert.rejects(readFile(join(outputDir, 'data', commit, 'added.srk.json'), 'utf8'));
+      await assert.rejects(readFile(join(outputDir, 'data', commit, 'changed.srk.json'), 'utf8'));
     });
   });
 
@@ -1410,6 +1494,13 @@ describe('srk command', () => {
     const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
     assert.match(source, /\.theme-light\s*\{[\s\S]*color-scheme: light;[\s\S]*\}/);
     assert.match(source, /\.theme-dark\s*\{[\s\S]*color-scheme: dark;[\s\S]*\}/);
+  });
+
+  test('preview template preserves absolute static data root URLs when resolving ranklist paths', async () => {
+    const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
+    assert.match(source, /\^https\?:\\\/\\\//);
+    assert.match(source, /const encodedPath = encodeRelativeUrlPath\(path\);/);
+    assert.ok(source.includes("return `${String(dataRoot).replace(/\\/+$/g, '')}/${encodedPath}`;"));
   });
 });
 

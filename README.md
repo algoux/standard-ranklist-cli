@@ -121,6 +121,7 @@ srk render -o ranklist.html ranklist.srk.json
 srk render -o ./review-site ./ranklists
 srk render -o ./review-site --git-diff-base main --git-diff-head HEAD ./ranklists
 srk render -o ./review-site --git-diff-base main --pr-url https://github.com/algoux/example/pull/123 ./ranklists
+srk render -o ./review-site --git-diff-base main --git-diff-head HEAD --static-data-root-url https://raw.githubusercontent.com/algoux/example/HEAD/ranklists ./ranklists
 ```
 
 Arguments and options:
@@ -131,6 +132,7 @@ Arguments and options:
 - `--git-diff-base <ref>`: In directory mode, render only SRK files changed in the `<base>...<head>` range.
 - `--git-diff-head <ref>`: Used with `--git-diff-base`. Defaults to `HEAD`.
 - `--pr-url <url>`: Generate a PR Review page. The sidebar shows a PR link, and the page title includes the PR number.
+- `--static-data-root-url <url>`: For directory render output, load SRK JSON files from this URL root instead of writing them into `data/`. The rendered page appends the preview tree path to this URL. The CLI still validates the local or git-head SRK JSON before writing `index.html`.
 
 Notes:
 
@@ -138,6 +140,7 @@ Notes:
 - Directory input requires `-o <out-dir>` and generates `<out-dir>/index.html` plus `<out-dir>/data/`.
 - Normal directory mode copies all `*.srk.json` files into `data/` while preserving their relative directory structure.
 - Git diff directory mode writes changed SRK files from the target `head` commit into `data/<commit>/`. Deleted files appear in the tree but cannot be selected.
+- With `--static-data-root-url`, directory output writes `index.html` without `data/`; serve the JSON files from the supplied URL root.
 - `--pr-url` must be used with directory input and `--git-diff-base`.
 - Directory render output should be served by a static file server. Opening it directly with `file://` may prevent some browsers from loading JSON files.
 
