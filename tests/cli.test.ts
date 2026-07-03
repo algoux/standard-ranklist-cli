@@ -204,6 +204,13 @@ async function copyFixture(name: string, targetDir: string): Promise<string> {
   return target;
 }
 
+async function assertZipFile(path: string): Promise<void> {
+  const outputStat = await stat(path);
+  assert.ok(outputStat.size > 0, 'expected a non-empty zip file');
+  const output = await readFile(path);
+  assert.equal(output.subarray(0, 2).toString('utf8'), 'PK');
+}
+
 async function reservePort(port: number, host = '127.0.0.1'): Promise<Server> {
   const server = createServer((_request, response) => {
     response.writeHead(204);
@@ -578,6 +585,7 @@ describe('srk command', () => {
     assert.match(result.stdout, /validate/);
     assert.match(result.stdout, /diagnose/);
     assert.match(result.stdout, /patch/);
+    assert.match(result.stdout, /convert/);
   });
 
   test('prints package version', async () => {
@@ -619,6 +627,15 @@ describe('srk command', () => {
     assert.match(patch.stdout, /Usage: srk patch/);
     assert.match(patch.stdout, /--output/);
     assert.match(patch.stdout, /--in-place/);
+
+    const convert = await runCli(['convert', '--help']);
+    assert.equal(convert.code, 0);
+    assert.match(convert.stdout, /Usage: srk convert/);
+    assert.match(convert.stdout, /<format>/);
+    assert.match(convert.stdout, /--output/);
+    assert.match(convert.stdout, /excel/);
+    assert.match(convert.stdout, /vjudge/);
+    assert.match(convert.stdout, /gym/);
 
     const preview = await runCli(['preview', '--help']);
     assert.equal(preview.code, 0);
@@ -869,6 +886,95 @@ describe('srk command', () => {
       assert.notEqual(result.code, 0);
       assert.match(result.stderr, /overwrite/i);
     }
+  });
+
+  test('converts an SRK file to the general Excel workbook format', async () => {
+    await withTempDir(async (dir) => {
+      const outputPath = join(dir, 'ranklist.xlsx');
+      const result = await runCli(['convert', 'excel', join(fixtureDir, 'conflict.srk.json'), '-o', outputPath]);
+
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout, '');
+      await assertZipFile(outputPath);
+    });
+  });
+
+  test('converts an SRK file to the VJudge replay workbook format', async () => {
+    await withTempDir(async (dir) => {
+      const outputPath = join(dir, 'replay.xlsx');
+      const result = await runCli(['convert', 'vjudge', join(fixtureDir, 'conflict.srk.json'), '-o', outputPath]);
+
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout, '');
+      await assertZipFile(outputPath);
+    });
+  });
+
+  test('converts an SRK file to the Codeforces Gym ghost DAT format', async () => {
+    await withTempDir(async (dir) => {
+      const outputPath = join(dir, 'ghost.dat');
+      const result = await runCli(['convert', 'gym', join(fixtureDir, 'conflict.srk.json'), '-o', outputPath]);
+
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout, '');
+      const dat = await readFile(outputPath, 'utf8');
+      assert.match(dat, /^@contest "Contest"$/m);
+      assert.match(dat, /^@problems 1$/m);
+      assert.match(dat, /^@teams 2$/m);
+      assert.match(dat, /^@submissions 2$/m);
+    });
+  });
+
+  test('convert requires an explicit output path', async () => {
+    const result = await runCli(['convert', 'gym', join(fixtureDir, 'conflict.srk.json')]);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /required option.*output/i);
+  });
+
+  test('convert rejects unsupported output formats', async () => {
+    const result = await runCli(['convert', 'xml', join(fixtureDir, 'conflict.srk.json'), '-o', 'ranklist.xml']);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Unsupported convert format "xml"/);
+    assert.match(result.stderr, /excel/);
+    assert.match(result.stderr, /vjudge/);
+    assert.match(result.stderr, /gym/);
+  });
+
+  test('convert rejects non-xlsx output paths for workbook formats', async () => {
+    const result = await runCli(['convert', 'excel', join(fixtureDir, 'conflict.srk.json'), '-o', 'ranklist.dat']);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /requires an \.xlsx output path/i);
+  });
+
+  test('convert keeps the existing invalid JSON error style', async () => {
+    await withTempDir(async (dir) => {
+      const ranklistPath = join(dir, 'invalid.srk.json');
+      await writeFile(ranklistPath, '{ invalid json', 'utf8');
+
+      const result = await runCli(['convert', 'gym', ranklistPath, '-o', join(dir, 'ghost.dat')]);
+
+      assert.notEqual(result.code, 0);
+      assert.match(result.stderr, /srk: Invalid JSON in ranklist/);
+      assert.match(result.stderr, new RegExp(escapeRegExp(ranklistPath)));
+    });
+  });
+
+  test('convert validates SRK schema before invoking converters', async () => {
+    await withTempDir(async (dir) => {
+      const ranklistPath = await copyFixture('conflict.srk.json', dir);
+      const ranklist = JSON.parse(await readFile(ranklistPath, 'utf8')) as Record<string, unknown>;
+      delete ranklist.contest;
+      await writeFile(ranklistPath, JSON.stringify(ranklist), 'utf8');
+
+      const result = await runCli(['convert', 'gym', ranklistPath, '-o', join(dir, 'ghost.dat')]);
+
+      assert.notEqual(result.code, 0);
+      assert.match(result.stderr, /SRK validation failed/);
+      assert.match(result.stderr, /\/contest/);
+    });
   });
 
   test('renders a standalone HTML document to stdout', async () => {

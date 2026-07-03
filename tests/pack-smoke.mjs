@@ -74,6 +74,20 @@ try {
   });
   assert.equal(validateOutput, `SRK validation OK: ${realpathSync(join(consumerDir, 'sample.srk.json'))}\n`);
 
+  runPnpm(['exec', 'srk', 'convert', 'excel', 'sample.srk.json', '-o', 'sample.xlsx'], {
+    cwd: consumerDir,
+    encoding: 'utf8',
+  });
+  assertZipFile(join(consumerDir, 'sample.xlsx'));
+
+  runPnpm(['exec', 'srk', 'convert', 'gym', 'sample.srk.json', '-o', 'sample.dat'], {
+    cwd: consumerDir,
+    encoding: 'utf8',
+  });
+  const dat = readFileSync(join(consumerDir, 'sample.dat'), 'utf8');
+  assert.match(dat, /^@contest "Contest"$/m);
+  assert.match(dat, /^@problems 1$/m);
+
   const html = runPnpm(['exec', 'srk', 'render', 'sample.srk.json'], {
     cwd: consumerDir,
     encoding: 'utf8',
@@ -106,6 +120,12 @@ try {
 
 function normalizeForPnpm(path) {
   return path.split(sep).join('/');
+}
+
+function assertZipFile(path) {
+  const output = readFileSync(path);
+  assert.ok(output.length > 0, 'expected a non-empty zip file');
+  assert.equal(output.subarray(0, 2).toString('utf8'), 'PK');
 }
 
 function runPnpm(args, options) {

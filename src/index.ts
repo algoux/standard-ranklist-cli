@@ -2,6 +2,7 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
+import { createConvertCommand } from './commands/convert.js';
 import { createDiagnoseCommand } from './commands/diagnose.js';
 import { createPatchCommand } from './commands/patch.js';
 import { createPreviewCommand } from './commands/preview.js';
@@ -28,6 +29,7 @@ export function createProgram(): Command {
   program.addCommand(createValidateCommand());
   program.addCommand(createDiagnoseCommand());
   program.addCommand(createPatchCommand());
+  program.addCommand(createConvertCommand());
   program.addCommand(createPreviewCommand());
   program.addCommand(createRenderCommand());
 

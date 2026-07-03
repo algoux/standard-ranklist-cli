@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@algoux/standard-ranklist-cli.svg)](https://www.npmjs.com/package/@algoux/standard-ranklist-cli)
 [![npm downloads](https://img.shields.io/npm/dm/@algoux/standard-ranklist-cli.svg)](https://www.npmjs.com/package/@algoux/standard-ranklist-cli)
 
-`srk` is a command-line tool for Standard Ranklist JSON files. It can validate ranklists, diagnose ranklists, apply patch files, start a browser preview, and render static HTML output.
+`srk` is a command-line tool for Standard Ranklist JSON files. It can validate ranklists, diagnose ranklists, apply patch files, convert ranklists, start a browser preview, and render static HTML output.
 
 ## Installation
 
@@ -83,6 +83,34 @@ Notes:
 
 - Without `-o` or `--in-place`, the patched JSON is written to stdout.
 - `--output` and `--in-place` cannot be used together.
+
+## `srk convert`
+
+Convert an SRK JSON file to another ranklist format.
+
+```shell
+srk convert excel ranklist.srk.json -o ranklist.xlsx
+srk convert vjudge ranklist.srk.json -o replay.xlsx
+srk convert gym ranklist.srk.json -o ghost.dat
+```
+
+Arguments and options:
+
+- `<format>`: Output format. Supported values are `excel`, `vjudge`, and `gym`.
+- `<srk.json>`: The SRK JSON file to convert.
+- `-o, --output <output>`: Write the converted output to a file.
+
+Formats:
+
+- `excel`: General Excel workbook.
+- `vjudge`: VJudge replay workbook.
+- `gym`: Codeforces Gym Ghost DAT file.
+
+Notes:
+
+- The command validates JSON syntax and SRK schema shape before conversion.
+- `excel` and `vjudge` outputs must use an `.xlsx` file path.
+- This command does not run semantic diagnostics such as first-blood conflicts or row-order checks.
 
 ## `srk preview`
 
