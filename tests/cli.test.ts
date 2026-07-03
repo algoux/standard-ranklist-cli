@@ -747,11 +747,21 @@ describe('srk command', () => {
     assert.equal(result.code, 0, result.stderr);
     assert.match(result.stdout, /^SRK Diagnostics\n/);
     assert.match(result.stdout, new RegExp(`^File: ${escapeRegExp(fixturePath)}$`, 'm'));
-    assert.match(result.stdout, /^Issues: 9 \(error 1, warning 2, info 6\)$/m);
+    assert.match(result.stdout, /^Issues: 8 \(error 1, warning 1, info 6\)$/m);
     assert.match(result.stdout, /^  solutionTime: min \(samples 2, zero 0, invalid 0, declared min\)$/m);
     assert.match(result.stdout, /^  statusTime:   min \(samples 2, zero 0, invalid 0, declared min\)$/m);
     assert.match(result.stdout, /^  \[missing\]  Contest banner: 0\/1 \(0\.0%\)$/m);
     assert.match(result.stdout, /^  \[complete\] Problem first-blood declarations: 1\/1 \(100\.0%\)$/m);
+    const completenessBlock = result.stdout.slice(
+      result.stdout.indexOf('Completeness\n'),
+      result.stdout.indexOf('\nCorrectness'),
+    );
+    const completenessLines = completenessBlock.split('\n').filter((line) => line.startsWith('  '));
+    assert.deepEqual(completenessLines.slice(-3), [
+      '  [missing]  Contest banner: 0/1 (0.0%)',
+      '  [missing]  User avatars: 0/2 (0.0%)',
+      '  [missing]  User photos: 0/2 (0.0%)',
+    ]);
     assert.match(result.stdout, /^  \[fail\] First-blood declarations: 1\/1 failed$/m);
     assert.match(result.stdout, /^  firstBlood:\n    - A: user u1, row 0, time \[10,"min"\]$/m);
     assert.match(

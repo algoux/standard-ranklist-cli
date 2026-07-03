@@ -5,7 +5,7 @@ allowBuilds:
   esbuild: true
 
 minimumReleaseAgeExclude:
-  - '@algoux/standard-ranklist-utils@0.3.2'
+  - '@algoux/standard-ranklist-utils@0.3.3'
 
 onlyBuiltDependencies:
   - esbuild

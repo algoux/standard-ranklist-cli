@@ -12,8 +12,8 @@ importers:
         specifier: ^0.3.13
         version: 0.3.13
       '@algoux/standard-ranklist-utils':
-        specifier: ^0.3.2
-        version: 0.3.2(@algoux/standard-ranklist@0.3.13)
+        specifier: ^0.3.3
+        version: 0.3.3(@algoux/standard-ranklist@0.3.13)
       ajv:
         specifier: ^8.20.0
         version: 8.20.0
@@ -76,6 +76,11 @@ packages:
 
   '@algoux/standard-ranklist-utils@0.3.2':
     resolution: {integrity: sha512-bbjQnLt2u/j2REqMoKYVORBhA3ObHrUjgv36Hl90l5yEQf9Jrdq9nx6Q01OUsvi0DjTtZ7pxzq5qzYF0/63G2w==}
+    peerDependencies:
+      '@algoux/standard-ranklist': '*'
+
+  '@algoux/standard-ranklist-utils@0.3.3':
+    resolution: {integrity: sha512-xKZRvBBoLD9yfIlaEaSFbaKA5+/pghQB9J7yY7UlP0iU4WW6SIHP6A5OCuFWmESY582hbK9NJPz/14Wo1xuRqg==}
     peerDependencies:
       '@algoux/standard-ranklist': '*'
 
@@ -971,6 +976,15 @@ snapshots:
       svelte: 3.59.2
 
   '@algoux/standard-ranklist-utils@0.3.2(@algoux/standard-ranklist@0.3.13)':
+    dependencies:
+      '@algoux/standard-ranklist': 0.3.13
+      '@types/semver': 7.7.1
+      bcp-47-match: 2.0.3
+      bignumber.js: 9.3.1
+      semver: 7.8.5
+      textcolor: 1.0.2
+
+  '@algoux/standard-ranklist-utils@0.3.3(@algoux/standard-ranklist@0.3.13)':
     dependencies:
       '@algoux/standard-ranklist': 0.3.13
       '@types/semver': 7.7.1

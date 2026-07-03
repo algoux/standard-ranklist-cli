@@ -17,6 +17,8 @@ interface TextFormatOptions {
 
 type CategoryColor = 'green' | 'yellow' | 'red';
 
+const trailingCompletenessItemKeys = ['banner', 'userAvatar', 'userPhoto'];
+
 export function formatDiagnosticsText(
   diagnostics: RanklistDiagnostics,
   filePath: string,
@@ -40,7 +42,7 @@ export function formatDiagnosticsText(
   lines.push('');
 
   lines.push('Completeness');
-  const completenessItems = Object.values(diagnostics.completeness.items);
+  const completenessItems = getCompletenessItemsForText(diagnostics);
   const completenessCategoryWidth = getMaxCategoryWidth(completenessItems, (item) => item.level);
   for (const item of completenessItems) {
     const category = formatCategory(item.level, completenessCategoryWidth, completenessItemColor(item), useColor);
@@ -76,6 +78,16 @@ export function formatDiagnosticsText(
 
   lines.push('');
   return lines.join('\n');
+}
+
+function getCompletenessItemsForText(diagnostics: RanklistDiagnostics): RanklistDiagnosticCompletenessItem[] {
+  const items = Object.values(diagnostics.completeness.items);
+  const trailingKeys = new Set(trailingCompletenessItemKeys);
+  const regularItems = items.filter((item) => !trailingKeys.has(item.key));
+  const trailingItems = trailingCompletenessItemKeys
+    .map((key) => items.find((item) => item.key === key))
+    .filter((item): item is RanklistDiagnosticCompletenessItem => Boolean(item));
+  return [...regularItems, ...trailingItems];
 }
 
 function getMaxCategoryWidth<T>(items: T[], getCategory: (item: T) => string): number {
