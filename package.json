@@ -1,6 +1,6 @@
 {
   "name": "@algoux/standard-ranklist-cli",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Command-line workflows for Standard Ranklist files.",
   "type": "module",
   "bin": {

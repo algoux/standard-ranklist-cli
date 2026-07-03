@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.4.0
+
+### Minor Changes
+
+- 514a603: Add `srk convert` for exporting SRK files to Excel, VJudge replay, and Codeforces Gym Ghost formats.
+
 ## 0.3.4
 
 ### Patch Changes
