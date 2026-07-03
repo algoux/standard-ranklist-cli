@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.3.4
+
+### Patch Changes
+
+- ea7fef1: Move contest banner, user avatar, and user photo completeness rows to the end of the text diagnostics completeness section.
+
 ## 0.3.3
 
 ### Patch Changes
