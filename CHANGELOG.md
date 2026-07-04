@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.4.1
+
+### Patch Changes
+
+- a3245a2: Fix `srk preview --watch` refreshes for single-file previews.
+
 ## 0.4.0
 
 ### Minor Changes
