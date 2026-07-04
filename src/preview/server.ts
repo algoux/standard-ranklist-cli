@@ -326,7 +326,7 @@ async function createInitialData(context: PreviewContext): Promise<PreviewInitDa
   const payload = await readRanklistPayload(context, context.selectedPath);
   return {
     mode: context.mode,
-    dataSource: context.mode === 'directory' ? 'http' : 'inline',
+    dataSource: context.mode === 'directory' || context.watch ? 'http' : 'inline',
     dataRoot: null,
     ...payload,
     tree,

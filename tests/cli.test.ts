@@ -1541,6 +1541,24 @@ describe('srk command', () => {
     });
   });
 
+  test('preview single-file watch mode uses HTTP data so the page can refresh on events', async () => {
+    await withTempDir(async (dir) => {
+      const ranklistPath = await copyFixture('conflict.srk.json', dir);
+      const server = await startPreviewServer(['preview', '--watch', '--port', '0', ranklistPath]);
+      try {
+        const html = await (await fetch(server.url)).text();
+        const init = extractPreviewInit(html);
+
+        assert.equal(init.mode, 'single');
+        assert.equal(init.watch, true);
+        assert.equal(init.dataSource, 'http');
+        assert.equal(init.selectedPath, 'conflict.srk.json');
+      } finally {
+        await server.stop();
+      }
+    });
+  });
+
   test('preview watch mode emits tree changes when the git index changes', async (t) => {
     if (!(await hasGit())) {
       t.skip('git is not available');
@@ -1629,6 +1647,7 @@ function extractPreviewInit(html: string): {
   ranklist?: unknown;
   dataSource?: string;
   dataRoot?: string;
+  watch?: boolean;
   selectedPath?: string;
   pageTitle?: string;
   prContext?: { number: number; label: string; url: string };
