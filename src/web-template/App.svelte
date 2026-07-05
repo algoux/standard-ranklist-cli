@@ -8,9 +8,11 @@
   } from '@algoux/standard-ranklist-renderer-component-svelte';
   import { EnumTheme, resolveContributor } from '@algoux/standard-ranklist-utils';
   import { formatPreviewGitSummaryLabel } from '../rendering/git-context';
-  import { resolveOptionalText } from '../rendering/text';
+  import { collectI18nLanguages, resolveOptionalText } from '../rendering/text';
   import { formatContestTime } from '../rendering/time';
   import TreeEntry from './TreeEntry.svelte';
+
+  const autoLanguageValue = 'auto';
 
   export let initialData;
 
@@ -29,17 +31,25 @@
   let error = '';
   let activeUserClick = null;
   let activeSolutionClick = null;
+  let selectedLanguage = autoLanguageValue;
   const watch = Boolean(initialData.watch);
   let preferredTheme = resolvePreferredTheme();
 
   $: staticRanklist = ranklist ? convertToStaticRanklist(ranklist) : null;
-  $: contestTitle = resolveOptionalText(ranklist && ranklist.contest && ranklist.contest.title) || 'Untitled Contest';
+  $: availableLanguages = collectI18nLanguages(ranklist);
+  $: if (selectedLanguage !== autoLanguageValue && !availableLanguages.includes(selectedLanguage)) {
+    selectedLanguage = autoLanguageValue;
+  }
+  $: selectedLanguages = selectedLanguage === autoLanguageValue ? undefined : [selectedLanguage];
+  $: contestTitle =
+    resolveOptionalText(ranklist && ranklist.contest && ranklist.contest.title, selectedLanguages) || 'Untitled Contest';
+  $: contestBanner = resolveContestBanner(ranklist && ranklist.contest && ranklist.contest.banner);
   $: contestTime = ranklist && ranklist.contest ? formatContestTime(ranklist.contest) : '';
   $: contributors = (ranklist && ranklist.contributors ? ranklist.contributors : [])
     .map((contributor) => resolveContributor(contributor))
     .filter(Boolean);
   $: refLinks = (ranklist && ranklist.contest && ranklist.contest.refLinks) || [];
-  $: remarks = resolveOptionalText(ranklist && ranklist.remarks);
+  $: remarks = resolveOptionalText(ranklist && ranklist.remarks, selectedLanguages);
   $: gitSummaryLabel = formatPreviewGitSummaryLabel(gitContext && gitContext.summaryLabel);
 
   async function selectFile(path) {
@@ -150,7 +160,23 @@
   }
 
   function resolveRefLinkLabel(link) {
-    return resolveOptionalText(link && link.title) || resolveRefLinkHref(link);
+    return resolveOptionalText(link && link.title, selectedLanguages) || resolveRefLinkHref(link);
+  }
+
+  function resolveContestBanner(banner) {
+    if (!banner) {
+      return null;
+    }
+    if (typeof banner === 'string') {
+      return { image: banner, link: null };
+    }
+    if (typeof banner === 'object' && typeof banner.image === 'string') {
+      return {
+        image: banner.image,
+        link: typeof banner.link === 'string' ? banner.link : null,
+      };
+    }
+    return null;
   }
 
   function resolvePreferredTheme() {
@@ -244,7 +270,37 @@
     {#if ranklist && staticRanklist}
       <header class="ranklist-header">
         <div class="ranklist-heading">
-          <p class="ranklist-kicker">{selectedPath || id || 'ranklist'}</p>
+          <div class="ranklist-title-row">
+            <p class="ranklist-kicker">{selectedPath || id || 'ranklist'}</p>
+            <label
+              class="language-switcher"
+              class:is-hidden={!availableLanguages.length}
+              aria-label="Preview language"
+              aria-hidden={!availableLanguages.length}
+            >
+              <select bind:value={selectedLanguage} disabled={!availableLanguages.length}>
+                <option value="auto">语言：自动</option>
+                {#each availableLanguages as language}
+                  <option value={language}>{language}</option>
+                {/each}
+              </select>
+            </label>
+          </div>
+          {#if contestBanner}
+            <div class="contest-banner">
+              {#if contestBanner.link}
+                <a href={contestBanner.link} target="_blank" rel="noreferrer">
+                  <img
+                    class="contest-banner-image"
+                    src={formatSrkAssetUrl(contestBanner.image)}
+                    alt={contestTitle}
+                  />
+                </a>
+              {:else}
+                <img class="contest-banner-image" src={formatSrkAssetUrl(contestBanner.image)} alt={contestTitle} />
+              {/if}
+            </div>
+          {/if}
           <h1>{contestTitle}</h1>
           {#if contestTime}
             <p class="contest-time">{contestTime}</p>
@@ -286,25 +342,30 @@
         </div>
       </header>
 
-      <section class="ranklist-table" aria-label="Ranklist table">
-        <Ranklist
-          data={staticRanklist}
-          theme={preferredTheme}
-          rowStriped
-          showDirtColumn
-          showSEColumn
-          showProblemStatisticsFooter
-          {formatSrkAssetUrl}
-          on:solutionClick={handleSolutionClick}
-          on:userClick={handleUserClick}
-        />
-      </section>
+      <div class="ranklist-shell">
+        <section class="ranklist-table" aria-label="Ranklist table">
+          <Ranklist
+            data={staticRanklist}
+            theme={preferredTheme}
+            rowStriped
+            showDirtColumn
+            showSEColumn
+            showProblemStatisticsFooter
+            emptyStatusPlaceholder="·"
+            languages={selectedLanguages}
+            {formatSrkAssetUrl}
+            on:solutionClick={handleSolutionClick}
+            on:userClick={handleUserClick}
+          />
+        </section>
+      </div>
 
       <DefaultUserModal
         open={!!activeUserClick}
         user={activeUserClick && activeUserClick.user}
         markers={staticRanklist.markers}
         theme={preferredTheme}
+        languages={selectedLanguages}
         {formatSrkAssetUrl}
         on:close={() => (activeUserClick = null)}
       />
@@ -314,6 +375,7 @@
         problem={activeSolutionClick && activeSolutionClick.problem}
         problemIndex={(activeSolutionClick && activeSolutionClick.problemIndex) || 0}
         solutions={(activeSolutionClick && activeSolutionClick.solutions) || []}
+        languages={selectedLanguages}
         on:close={() => (activeSolutionClick = null)}
       />
     {:else}
@@ -632,15 +694,30 @@
     display: grid;
     gap: 10px;
     justify-items: center;
-    margin: 0 auto 22px;
-    max-width: 980px;
+    width: 100%;
+    margin: 0 0 22px;
     text-align: center;
   }
 
   .ranklist-heading {
     display: grid;
-    gap: 5px;
+    gap: 8px;
     justify-items: center;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .ranklist-title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+    width: 100%;
+  }
+
+  .ranklist-title-row .ranklist-kicker {
+    grid-column: 2;
+    justify-self: center;
   }
 
   .ranklist-kicker,
@@ -650,6 +727,27 @@
     font-size: 13px;
     line-height: 1.45;
     overflow-wrap: anywhere;
+  }
+
+  .contest-banner {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .contest-banner a {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .contest-banner-image {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
   }
 
   .ranklist-header h1 {
@@ -690,10 +788,37 @@
     text-decoration: underline;
   }
 
-  .ranklist-table {
+  .ranklist-shell {
     display: block;
     width: max-content;
     min-width: 100%;
+  }
+
+  .language-switcher {
+    display: block;
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .language-switcher.is-hidden {
+    visibility: hidden;
+  }
+
+  .language-switcher select {
+    max-width: 180px;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    background: var(--panel-bg);
+    color: var(--text);
+    padding: 6px 28px 6px 10px;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .ranklist-table {
+    display: block;
+    width: 100%;
     overflow: visible;
   }
 

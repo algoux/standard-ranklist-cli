@@ -387,6 +387,38 @@ describe('srk command', () => {
     assert.equal(resolveOptionalText('Contest'), 'Contest');
   });
 
+  test('resolves optional preview text with a forced language priority', () => {
+    const resolveWithLanguages = resolveOptionalText as (
+      value: unknown,
+      languages?: readonly string[],
+    ) => string;
+
+    assert.equal(
+      resolveWithLanguages({ fallback: 'Contest', 'zh-CN': '比赛', 'en-US': 'Contest' }, ['zh-CN']),
+      '比赛',
+    );
+  });
+
+  test('collects i18n language keys from the selected ranklist text objects', async () => {
+    const textModule = (await import('../src/rendering/text.js')) as {
+      collectI18nLanguages?: (value: unknown) => string[];
+    };
+    const collectI18nLanguages = textModule.collectI18nLanguages;
+    assert.ok(typeof collectI18nLanguages === 'function');
+
+    assert.deepEqual(
+      collectI18nLanguages({
+        contest: {
+          title: { fallback: 'Contest', 'zh-CN': '比赛', 'en-US': 'Contest' },
+          refLinks: [{ link: 'https://example.com', title: { fallback: 'Docs', ja: '資料' } }],
+        },
+        rows: [{ user: { name: { fallback: 'Team', 'en-US': 'Team' } } }],
+      }),
+      ['zh-CN', 'en-US', 'ja'],
+    );
+    assert.deepEqual(collectI18nLanguages({ contest: { title: 'Contest' } }), []);
+  });
+
   test('formats contest time with a single trailing browser timezone', () => {
     const previousTimezone = process.env.TZ;
     process.env.TZ = 'Asia/Shanghai';
@@ -1614,6 +1646,60 @@ describe('srk command', () => {
   test('preview ranklist enables the problem statistics footer', async () => {
     const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
     assert.match(source, /<Ranklist[\s\S]*\bshowProblemStatisticsFooter\b[\s\S]*\/>/);
+  });
+
+  test('preview ranklist uses a centered dot for empty submission placeholders', async () => {
+    const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
+    assert.match(source, /<Ranklist[\s\S]*emptyStatusPlaceholder="·"[\s\S]*\/>/);
+  });
+
+  test('preview header renders contest banners above the contest title', async () => {
+    const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
+    const headerIndex = source.indexOf('<header class="ranklist-header">');
+    const shellIndex = source.indexOf('class="ranklist-shell"');
+    const bannerIndex = source.indexOf('class="contest-banner"');
+    const titleIndex = source.indexOf('<h1>{contestTitle}</h1>');
+
+    assert.ok(headerIndex !== -1, 'Expected ranklist header markup');
+    assert.ok(shellIndex !== -1, 'Expected ranklist shell markup');
+    assert.ok(bannerIndex !== -1, 'Expected contest banner markup');
+    assert.ok(titleIndex !== -1, 'Expected contest title markup');
+    assert.ok(headerIndex < bannerIndex, 'Expected contest banner inside the ranklist header');
+    assert.ok(bannerIndex < titleIndex, 'Expected contest banner above the title');
+    assert.ok(titleIndex < shellIndex, 'Expected ranklist shell after the header so wide tables do not size the banner');
+    assert.match(source, /class="contest-banner-image"/);
+    assert.match(source, /\.ranklist-header\s*\{[^}]*\n\s*width: 100%;[^}]*\}/);
+    assert.doesNotMatch(source, /\.ranklist-header\s*\{[^}]*max-width:/);
+    assert.match(source, /\.ranklist-heading\s*\{[^}]*\n\s*width: 100%;[^}]*\}/);
+    assert.match(source, /\.contest-banner a\s*\{[^}]*\n\s*width: 100%;[^}]*\}/);
+    assert.match(source, /\.contest-banner-image\s*\{[^}]*\n\s*width: 100%;[^}]*\}/);
+    assert.match(source, /\.contest-banner-image\s*\{[^}]*max-width: 100%;[^}]*\}/);
+  });
+
+  test('preview language selector shares the file-name row and hides without collapsing layout', async () => {
+    const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
+    const titleRowIndex = source.indexOf('class="ranklist-title-row"');
+    const kickerIndex = source.indexOf('class="ranklist-kicker"');
+    const switcherIndex = source.indexOf('class:is-hidden={!availableLanguages.length}');
+    const titleIndex = source.indexOf('<h1>{contestTitle}</h1>');
+
+    assert.ok(titleRowIndex !== -1, 'Expected a shared file-name row');
+    assert.ok(kickerIndex !== -1, 'Expected file name text in the shared row');
+    assert.ok(switcherIndex !== -1, 'Expected the language switcher to stay mounted');
+    assert.ok(titleRowIndex < kickerIndex, 'Expected file name inside the shared row');
+    assert.ok(kickerIndex < switcherIndex, 'Expected language switcher in the same row as file name');
+    assert.ok(switcherIndex < titleIndex, 'Expected shared row above the contest title');
+    assert.match(source, /<option value="auto">语言：自动<\/option>/);
+    assert.match(source, /bind:value={selectedLanguage}/);
+    assert.match(source, /disabled={!availableLanguages\.length}/);
+    assert.match(source, /aria-hidden={!availableLanguages\.length}/);
+    assert.doesNotMatch(source, /class="ranklist-toolbar"/);
+    assert.match(source, /\.ranklist-title-row\s*\{[^}]*display: grid;[^}]*grid-template-columns:[^}]*\}/);
+    assert.match(source, /\.language-switcher\.is-hidden\s*\{[^}]*visibility: hidden;[^}]*\}/);
+    assert.doesNotMatch(source, /\.language-switcher\s*\{[\s\S]*position: fixed/);
+    assert.match(source, /<Ranklist[\s\S]*languages={selectedLanguages}[\s\S]*\/>/);
+    assert.match(source, /<DefaultUserModal[\s\S]*languages={selectedLanguages}[\s\S]*\/>/);
+    assert.match(source, /<DefaultSolutionModal[\s\S]*languages={selectedLanguages}[\s\S]*\/>/);
   });
 
   test('preview sidebar places the PR link beside the git changes label', async () => {
