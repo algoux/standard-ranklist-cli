@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.4.2
+
+### Patch Changes
+
+- fe8fe4e: Improve preview and render pages with contest banners, stable language controls, localized text rendering, and centered empty submission placeholders.
+
 ## 0.4.1
 
 ### Patch Changes
