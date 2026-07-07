@@ -8,6 +8,7 @@
   } from '@algoux/standard-ranklist-renderer-component-svelte';
   import { EnumTheme, resolveContributor } from '@algoux/standard-ranklist-utils';
   import { formatPreviewGitSummaryLabel } from '../rendering/git-context';
+  import { resolveRanklistRendererProps } from '../rendering/ranklist-renderer-props';
   import { collectI18nLanguages, resolveOptionalText } from '../rendering/text';
   import { formatContestTime } from '../rendering/time';
   import TreeEntry from './TreeEntry.svelte';
@@ -36,6 +37,7 @@
   let preferredTheme = resolvePreferredTheme();
 
   $: staticRanklist = ranklist ? convertToStaticRanklist(ranklist) : null;
+  $: ranklistRendererProps = resolveRanklistRendererProps(ranklist);
   $: availableLanguages = collectI18nLanguages(ranklist);
   $: if (selectedLanguage !== autoLanguageValue && !availableLanguages.includes(selectedLanguage)) {
     selectedLanguage = autoLanguageValue;
@@ -354,6 +356,7 @@
             emptyStatusPlaceholder="·"
             languages={selectedLanguages}
             {formatSrkAssetUrl}
+            {...ranklistRendererProps}
             on:solutionClick={handleSolutionClick}
             on:userClick={handleUserClick}
           />

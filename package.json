@@ -56,9 +56,9 @@
     "commander": "^14.0.1"
   },
   "devDependencies": {
-    "@algoux/standard-ranklist-renderer-component-core": "0.6.2",
-    "@algoux/standard-ranklist-renderer-component-styles": "0.6.1",
-    "@algoux/standard-ranklist-renderer-component-svelte": "0.6.3",
+    "@algoux/standard-ranklist-renderer-component-core": "0.6.4",
+    "@algoux/standard-ranklist-renderer-component-styles": "0.6.2",
+    "@algoux/standard-ranklist-renderer-component-svelte": "0.6.5",
     "@changesets/cli": "^2.31.0",
     "@sveltejs/vite-plugin-svelte": "1.0.0-next.49",
     "@types/node": "^22.15.3",

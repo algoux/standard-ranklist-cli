@@ -1653,6 +1653,21 @@ describe('srk command', () => {
     assert.match(source, /<Ranklist[\s\S]*emptyStatusPlaceholder="·"[\s\S]*\/>/);
   });
 
+  test('preview ranklist forces text status colors for score sorter data only', async () => {
+    const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
+    assert.match(source, /<Ranklist[\s\S]*\{\.\.\.ranklistRendererProps\}[\s\S]*\/>/);
+
+    const rendererPropsModule = (await import('../src/rendering/ranklist-renderer-props.js')) as {
+      resolveRanklistRendererProps: (ranklist: unknown) => Record<string, unknown>;
+    };
+
+    assert.deepEqual(rendererPropsModule.resolveRanklistRendererProps({ sorter: { algorithm: 'score' } }), {
+      statusColorAsText: true,
+    });
+    assert.deepEqual(rendererPropsModule.resolveRanklistRendererProps({ sorter: { algorithm: 'ICPC' } }), {});
+    assert.deepEqual(rendererPropsModule.resolveRanklistRendererProps({}), {});
+  });
+
   test('preview header renders contest banners above the contest title', async () => {
     const source = await readFile(join(repoRoot, 'src', 'web-template', 'App.svelte'), 'utf8');
     const headerIndex = source.indexOf('<header class="ranklist-header">');
