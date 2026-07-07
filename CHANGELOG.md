@@ -1,5 +1,11 @@
 # @algoux/standard-ranklist-cli
 
+## 0.4.3
+
+### Patch Changes
+
+- 6dd462f: Force text status colors for score-sorter ranklists in preview and rendered output.
+
 ## 0.4.2
 
 ### Patch Changes
